@@ -25,7 +25,7 @@ def placeCmd(pos,command="",direction=(0,-1,0),t=0,conditional=False,needsRedsto
 		typeString = "chain_"+typeString
 	if t == 2:
 		typeString = "repeating_"+typeString
-	# if direction == 
+	# if direction ==
 	tupleDir = tuple(direction)
 	blockData = 0
 	if tupleDir == (0,-1,0):
@@ -75,37 +75,60 @@ commands = filter(None, commands)
 # make things starting with # work
 prefixes = []
 variables = {}
+insertCommands = []
+elseStack = []
+
+def processCommand(command):
+	# add variables
+	for varName in variables:
+		command = command.replace("$"+varName,variables[varName])
+	# add if statements
+	if len(prefixes) > 0:
+		longPrefixes = []
+		for prefix in prefixes:
+			prefix = "execute "+prefix
+			if prefix.endswith("]"):
+				prefix = prefix+" ~ ~ ~"
+			prefix = prefix+" "
+			longPrefixes.append(prefix)
+		prefixString = "".join(longPrefixes)
+		# prefixString = "execute "+" ~ ~ ~ execute ".join(prefixes)+" ~ ~ ~ "
+	else:
+		prefixString = ""
+	return prefixString + command
 
 for i in range(len(commands)):
 	command = commands[i]
 	if command.startswith("#if"):
 		selector = command[4:]
 		prefixes.append(selector)
+		elseStack.append(False)
+	elif command.startswith("#else"):
+		name = "else" + str(len(elseStack))
+		selector = "@e[name=" + name + "]"
+		commands[i] = processCommand("kill " + selector)
+		del prefixes[-1]
+		spawnCmd = "summon ArmorStand ~ ~ ~ {CustomName:" + name + "}"
+		prefixes.append(selector)
+		elseStack[-1] = selector
+		insertCommands.append({"index": i, "cmd": spawnCmd})
 	elif command.startswith("#endif"):
 		del prefixes[-1]
+		if elseStack[-1]:
+		 	killCmd = "kill " + elseStack[-1]
+			insertCommands.append({"index": i, "cmd": killCmd})
+		del elseStack[-1]
 	elif command.startswith("#var"):
 		splitCommand = command.split(" ",2)
 		varName = splitCommand[1]
 		varValue = splitCommand[2]
 		variables[varName] = varValue
 	else:
-		# add variables
-		for varName in variables:
-			command = command.replace("$"+varName,variables[varName])
-		# add if statements
-		if len(prefixes) > 0:
-			longPrefixes = []
-			for prefix in prefixes:
-				prefix = "execute "+prefix
-				if prefix.endswith("]"):
-					prefix = prefix+" ~ ~ ~"
-				prefix = prefix+" "
-				longPrefixes.append(prefix)
-			prefixString = "".join(longPrefixes)
-			# prefixString = "execute "+" ~ ~ ~ execute ".join(prefixes)+" ~ ~ ~ "
-		else:
-			prefixString = ""
-		commands[i] = prefixString + command
+		commands[i] = processCommand(command)
+
+insertCommands = insertCommands[::-1] # reverse insertCommands
+for insert in insertCommands:
+	commands.insert(insert["index"], insert["cmd"])
 
 functions = {}
 currentFuncCommands = []
@@ -131,7 +154,7 @@ commands = commands[:firstFuncLine]
 
 # remove lines starting with # or //
 def removeHashAndSlash(l):
-	return [command for command in l if not command.startswith(("#if","#endif","#var","#func","#endfunc","//"))]
+	return [command for command in l if not command.startswith(("#if","#else","#endif","#var","#func","#endfunc","//"))]
 commands = removeHashAndSlash(commands)
 for function in functions:
 	functions[function] = removeHashAndSlash(functions[function])
