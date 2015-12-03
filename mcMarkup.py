@@ -105,10 +105,10 @@ for i in range(len(commands)):
 		elseStack.append(False)
 	elif command.startswith("#else"):
 		name = "else" + str(len(elseStack))
-		selector = "@e[name=" + name + "]"
+		selector = "@e[type=ArmorStand,name=" + name + "]"
 		commands[i] = processCommand("kill " + selector)
 		del prefixes[-1]
-		spawnCmd = "summon ArmorStand ~ ~ ~ {CustomName:" + name + "}"
+		spawnCmd = "summon ArmorStand ~ ~ ~ {CustomName:" + name + ",NoGravity:true}"
 		prefixes.append(selector)
 		elseStack[-1] = selector
 		insertCommands.append({"index": i, "cmd": spawnCmd})
